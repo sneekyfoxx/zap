@@ -6,4 +6,4 @@
                                 _███╔╝__██╔══██║██╔═══╝_
                                 ███████╗██║__██║██║_____
                                 ╚══════╝╚═╝__╚═╝╚═╝_____
-              :zap: zap and remove escape characters from strings with ease
+              ⚡zap and remove escape characters from strings with ease
