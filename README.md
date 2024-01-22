@@ -1,2 +1,9 @@
-# zap
-A simpler alternative to the 'cut' Linux command line utility written in Nim
+
+
+                                        ███████╗_█████╗_██████╗_
+                                        ╚══███╔╝██╔══██╗██╔══██╗
+                                        __███╔╝_███████║██████╔╝
+                                        _███╔╝__██╔══██║██╔═══╝_
+                                        ███████╗██║__██║██║_____
+                                        ╚══════╝╚═╝__╚═╝╚═╝_____
+                      ⚡ zap and remove escape characters from strings with ease
