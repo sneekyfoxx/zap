@@ -8,7 +8,7 @@
 
 ## About
 
-**Zap** is a command line utility which combines the basic functionalities of two well known command line utilities, **cut** and **tr**. Zap doesn't have all the functionalities of *cut* or *tr* because it isn't meant to replace them. **Zap** was created to make slicing strings in the terminal a little bit easier.
+**Zap** is a command line utility which combines the basic functionalities of two well known command line utilities, **cut** and **tr**. Zap doesn't have all the functionalities of *cut* or *tr* because it isn't meant to replace them. **Zap** was created to make slicing strings in the terminal a little bit easier. **Zap** removes all escape characters and truncates all spaces by default reducing the number of zaps, cuts, and tranlations in the process.
 
 ## Similarities To *cut*
 
