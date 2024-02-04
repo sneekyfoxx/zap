@@ -17,8 +17,10 @@
 
 ## Similarities To *tr*
 
-- able to truncate characters
-- able to remove a character (ANSII escape characters included)
+- character truncation
+- ANSII escape character deletion
+- character replacement
+
 
 ## Why use *Zap*?
 
@@ -26,6 +28,6 @@ Some of the benefits of using **Zap** is that it can help reduce the number of t
 
 ## Usage Examples
 
-`zap -c:'CHAR' [-g:POS] [[-r:START,STOP] [-f | -l]] TEXT`
+`zap -c:'CHAR' [-i:CHAR] [-g:POS] [[-r:START,STOP] [-f | -l]] TEXT`
 
-`TEXT | zap -c:'CHAR' [-g:POS] [[-r:START,STOP] [-f | -l]]`
+`TEXT | zap -c:'CHAR' [-i:CHAR] [-g:POS] [[-r:START,STOP] [-f | -l]]`
