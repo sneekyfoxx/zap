@@ -1,17 +1,23 @@
-import std/[cmdline, terminal, re, strutils]
+import std/[cmdline, terminal, re, strutils, strformat]
 
 proc zapHelp: void =
-  stdout.write("Usage: zap [OPTIONS] [TEXT] || TEXT | zap [OPTIONS]\n")
-  stdout.write("Description: remove a specific character or ASCII escape sequences from text\n\n")
-  stdout.write("Option                    Description\n")
-  stdout.write("------                    -----------\n")
-  stdout.write(" -c:CHAR                  remove all occurences of the given character\n")
-  stdout.write(" -f                       get the first value in the zapped string\n")
-  stdout.write(" -g:POS                   get the value at POS in the zapped string\n")
-  stdout.write(" -h                       show zap usage information\n")
-  stdout.write(" -i:CHAR                  inject CHAR where -c:CHAR was in the zapped string\n")
-  stdout.write(" -l                       get the last value in the zapped string\n")
-  stdout.write(" -r:START,STOP            get the value(s) starting at START and stoping at STOP (inclusive)\n")
+  const red: string = "\x1b[01;31m"
+  const green: string = "\x1b[01;32m"
+  const yellow: string = "\x1b[01;33m"
+  const cyan: string = "\x1b[01;36m"
+  const orange: string = "\x1b[01;38;02;255;160;00m"
+  const reset: string = "\x1b[00m"
+
+  stdout.write("{green}Usage{reset}: {orange}zap{reset} {yellow}[-h] [-d:TEXT [-i:TEXT] [-g:POS] [-r:START,STOP] [-f, -l]]{reset}\n\n".fmt)
+  stdout.write("{cyan}Option               Description{reset}\n".fmt)
+  stdout.write("{red}------               -----------{reset}\n".fmt)
+  stdout.write(" {cyan}-d{reset}:{green}TEXT{reset}             {yellow}remove all ocurrences of TEXT from zapped string{reset}\n\n".fmt)
+  stdout.write(" {cyan}-f{reset}                  {yellow}get the first value in the zapped string{reset}\n\n".fmt)
+  stdout.write(" {cyan}-g{reset}:{green}POS{reset}              {yellow}get the value at POS in the zapped string{reset}\n\n".fmt)
+  stdout.write(" {cyan}-h{reset}                  {yellow}show zap usage information{reset}\n\n".fmt)
+  stdout.write(" {cyan}-i{reset}:{green}TEXT{reset}             {yellow}inject TEXT where -d:TEXT was in the zapped string{reset}\n\n".fmt)
+  stdout.write(" {cyan}-l{reset}                  {yellow}get the last value in the zapped string{reset}\n\n".fmt)
+  stdout.write(" {cyan}-r{reset}:{green}START,STOP{reset}       {yellow}get the value(s) from START to STOP{reset} ({green}inclusive{reset})\n".fmt)
   quit(0)
 
 proc bytearray[T: string](target: T): seq[uint8] =
@@ -30,17 +36,22 @@ proc stringify(bytes: seq[uint8]): string =
 
   result = zapped
 
-proc translate(value: string): string =
-  case value:
-  of r"\0": return "\0"
-  of r"\a": return "\a"
-  of r"\b": return "\b"
-  of r"\t": return "\t"
-  of r"\n": return "\n"
-  of r"\v": return "\v"
-  of r"\f": return "\f"
-  of r"\r": return "\r"
-  else: return value
+proc translate(value: var string): void =
+  var pos: int = 0
+
+  while pos < len(value):
+    let curr: string = $(value[pos])
+    let next: string = (try: $(value[pos + 1]) except IndexDefect: "")
+
+    if uint8(curr[0]) == uint8('\\'):
+      if uint8(next[0]) == uint8('0'): value[pos..pos + 1] = "\0"
+      elif uint8(next[0]) == uint8('b'): value[pos..pos + 1] = "\b"
+      elif uint8(next[0]) == uint8('t'): value[pos..pos + 1] = "\t"
+      elif uint8(next[0]) == uint8('n'): value[pos..pos + 1] = "\n"
+      elif uint8(next[0]) == uint8('v'): value[pos..pos + 1] = "\v"
+      elif uint8(next[0]) == uint8('f'): value[pos..pos + 1] = "\f"
+      elif uint8(next[0]) == uint8('r'): value[pos..pos + 1] = "\r"
+    pos.inc()
 
 proc squeezeSpaces(bytes: var seq[uint8]): seq[uint8] =
   var pos: int = 0
@@ -70,9 +81,38 @@ proc stripEnds(unzapped: var seq[uint8]): void =
     if unzapped[back] == uint8(32):
       unzapped.delete(back)
 
-proc zap(data: string = "", character: uint8 = 0, inject: uint8 = 0): string =
+proc zapDelete(original_bytes: var seq[uint8], target: var string, inject: var string): void =
+  inject = inject
+  let target_bytes: seq[uint8] = bytearray(target)
+
+  if len(original_bytes) >= len(target_bytes):
+    var start: int = 0
+    var stop: int = len(target_bytes) - 1
+
+    while start < len(original_bytes) and stop < len(original_bytes):
+      if original_bytes[start..stop] == target_bytes:
+        if inject == "":
+            original_bytes[start..stop] = @[uint8(32)]
+
+        else:
+          var inject_bytes: seq[uint8] = bytearray(inject)
+          inject_bytes.add(uint8(32))
+          original_bytes[start..stop] = inject_bytes
+
+      start.inc()
+      stop.inc()
+
+    echo original_bytes
+
+proc zap(data: string = "", target: var string, inject: var string): string =
   var bytes: seq[uint8] = bytearray(data)
   var pos: int = 0
+
+  if target != "":
+    translate(target)
+
+  if inject != "":
+    translate(inject)
 
   while pos < len(bytes):
     case bytes[pos]:
@@ -101,21 +141,18 @@ proc zap(data: string = "", character: uint8 = 0, inject: uint8 = 0): string =
       bytes[pos] = uint8(32)
 
     else:
-      if character != uint8(0) and bytes[pos] == character:
-        if inject != uint8(0):
-          bytes[pos] = inject
+      pos.inc()
+      continue
 
-        else:
-          bytes[pos] = uint8(32)
-
-    pos.inc()
+  if target != "":
+    zapDelete(bytes, target, inject)
 
   stripEnds(bytes)
   return stringify(squeezeSpaces(bytes))
 
 proc checkParams(param: string): string =
-  if param.contains(re"^((-c)(:{1,2})([\w\W]{1}))$"):
-    return "-c"
+  if param.contains(re"^((-d)(:{1,2})([\w\W]{1,}))$"):
+    return "-d"
 
   elif param.contains(re"^(-f)$"):
     return "-f"
@@ -126,7 +163,7 @@ proc checkParams(param: string): string =
   elif param.contains(re"^(-h)$"):
     return "-h"
 
-  elif param.contains(re"^((-i)(:{1,2})([\w\W]{1,2}))$"):
+  elif param.contains(re"^((-i)(:{1,2})([\w\W]{1,}))$"):
     return "-i"
 
   elif param.contains(re"^(-l)$"):
@@ -140,7 +177,7 @@ proc checkParams(param: string): string =
     quit(1)
 
 proc splitParam(param: string): string =
-  if param.startsWith(re"(-c)"):
+  if param.startsWith(re"(-d)"):
     let value: seq[string] = param.split(re"(:)", 1)
     return value[1]
 
@@ -219,16 +256,8 @@ proc zapRange(param: string, zapped: string): string =
     stderr.write("Indices out of range -> '" & param & "'")
     quit(1)
 
-proc zapInjection(param: string): string =
-  if len(param) == 2 and param notin [r"\0", r"\a", r"\b", r"\t", r"\n", r"\v", r"\f", r"\r"]:
-    stderr.write("Too many characters -> '" & param & "' isn't an escape character")
-    quit(1)
-
-  else:
-    return translate(param)
-
 proc main(count: int, params: seq[string]): int =
-  var zapped, param1, param2, param3: string
+  var (target, inject, zapped, param1, param2, param3) = ("", "", "", "", "", "")
 
   if count == 0:
     return 0
@@ -245,16 +274,16 @@ proc main(count: int, params: seq[string]): int =
         return 1
 
       else:
-        zapped = params[0].zap()
+        zapped = params[0].zap(target=target, inject=inject)
         stdout.write(zapped)
         return 0 
 
     else: # if not a terminal
       param1 = params[0].checkParams()
 
-      if param1 == "-c":
-        let character: uint8 = uint8(splitParam(params[0])[0])
-        zapped = readAll(stdin).zap(character)
+      if param1 == "-d":
+        target = splitParam(params[0])
+        zapped = readAll(stdin).zap(target=target, inject=inject)
         stdout.write(zapped)
 
       elif param1 == "-h":
@@ -274,13 +303,13 @@ proc main(count: int, params: seq[string]): int =
     if isatty(stdin):
       param1 = params[0].checkParams()
 
-      if param1 == "-c":
-        let character: uint8 = uint8(splitParam(params[0])[0])
-        zapped = params[1].zap(character)
+      if param1 == "-d":
+        target = splitParam(params[0])
+        zapped = params[1].zap(target=target, inject=inject)
         stdout.write(zapped)
 
       elif param1 == "-g":
-        zapped = params[1].zap()
+        zapped = params[1].zap(target=target, inject=inject)
         stdout.write(zapGet(splitParam(params[0]), zapped))
 
       elif param1 == "-h":
@@ -295,30 +324,30 @@ proc main(count: int, params: seq[string]): int =
       param1 = params[0].checkParams()
       param2 = params[1].checkParams()
 
-      if param1 == "-c" and param2 == "-f":
-        let character: uint8 = uint8(splitParam(params[0])[0])
-        zapped = readAll(stdin).zap(character)
+      if param1 == "-d" and param2 == "-f":
+        target = splitParam(params[0])
+        zapped = readAll(stdin).zap(target=target, inject=inject)
         stdout.write(zapFirst(zapped))
 
-      elif param1 == "-c" and param2 == "-g":
-        let character: uint8 = uint8(splitParam(params[0])[0])
-        zapped = readAll(stdin).zap(character)
+      elif param1 == "-d" and param2 == "-g":
+        target = splitParam(params[0])
+        zapped = readAll(stdin).zap(target=target, inject=inject)
         stdout.write(zapGet(splitParam(params[1]), zapped))
 
-      elif param1 == "-c" and param2 == "-i":
-        let character: uint8 = uint8(splitParam(params[0])[0])
-        let injection: string = zapInjection(splitParam(params[1]))
-        zapped = readAll(stdin).zap(character, uint8(injection[0]))
+      elif param1 == "-d" and param2 == "-i":
+        target = splitParam(params[0])
+        inject = splitParam(params[1])
+        zapped = readAll(stdin).zap(target=target, inject=inject)
         stdout.write(zapped)
 
-      elif param1 == "-c" and param2 == "-l":
-        let character: uint8 = uint8(splitParam(params[0])[0])
-        zapped = readAll(stdin).zap(character)
+      elif param1 == "-d" and param2 == "-l":
+        target = splitParam(params[0])
+        zapped = readAll(stdin).zap(target=target, inject=inject)
         stdout.write(zapLast(zapped))
 
-      elif param1 == "-c" and param2 == "-r":
-        let character: uint8 = uint8(splitParam(params[0])[0])
-        zapped = readAll(stdin).zap(character)
+      elif param1 == "-d" and param2 == "-r":
+        target = splitParam(params[0])
+        zapped = readAll(stdin).zap(target=target, inject=inject)
         stdout.write(zapRange(splitParam(params[1]), zapped))
 
       elif param1 == "-h" xor param2 == "-h":
@@ -330,30 +359,30 @@ proc main(count: int, params: seq[string]): int =
     param2 = params[1].checkParams()
 
     if isatty(stdin):
-      if param1 == "-c" and param2 == "-f":
-        let character: uint8 = uint8(splitParam(params[0])[0])
-        zapped = params[2].zap(character)
+      if param1 == "-d" and param2 == "-f":
+        target = splitParam(params[0])
+        zapped = params[2].zap(target=target, inject=inject)
         stdout.write(zapFirst(zapped))
 
-      elif param1 == "-c" and param2 == "-g":
-        let character: uint8 = uint8(splitParam(params[0])[0])
-        zapped = params[2].zap(character)
+      elif param1 == "-d" and param2 == "-g":
+        target = splitParam(params[0])
+        zapped = params[2].zap(target=target, inject=inject)
         stdout.write(zapGet(splitParam(params[1]), zapped))
 
-      elif param1 == "-c" and param2 == "-i":
-        let character: uint8 = uint8(splitParam(params[0])[0])
-        let injection: string = zapInjection(splitParam(params[1]))
-        zapped = params[2].zap(character, uint8(injection[0]))
+      elif param1 == "-d" and param2 == "-i":
+        target = splitParam(params[0])
+        inject = splitParam(params[1])
+        zapped = params[2].zap(target=target, inject=inject)
         stdout.write(zapped)
 
-      elif param1 == "-c" and param2 == "-l":
-        let character: uint8 = uint8(splitParam(params[0])[0])
-        zapped = params[2].zap(character)
+      elif param1 == "-d" and param2 == "-l":
+        target = splitParam(params[0])
+        zapped = params[2].zap(target=target, inject=inject)
         stdout.write(zapLast(zapped))
 
-      elif param1 == "-c" and param2 == "-r":
-        let character: uint8 = uint8(splitParam(params[0])[0])
-        zapped = params[2].zap(character)
+      elif param1 == "-d" and param2 == "-r":
+        target = splitParam(params[0])
+        zapped = params[2].zap(target=target, inject=inject)
         stdout.write(zapRange(splitParam(params[1]), zapped))
 
       elif param1 == "-h" xor param2 == "-h":
@@ -369,17 +398,40 @@ proc main(count: int, params: seq[string]): int =
       param2 = params[1].checkParams()
       param3 = params[2].checkParams()
 
-      if param1 == "-c" and param2 == "-r" and param3 == "-f":
-        let character: uint8 = uint8(splitParam(params[0])[0])
-        zapped = readAll(stdin).zap(character)
+      if param1 == "-d" and param2 == "-r" and param3 == "-f":
+        target = splitParam(params[0])
+        zapped = readAll(stdin).zap(target=target, inject=inject)
+
         let zap_range: string = zapRange(splitParam(params[1]), zapped)
         stdout.write(zapFirst(zap_range))
 
-      elif param1 == "-c" and param2 == "-r" and param3 == "-l":
-        let character: uint8 = uint8(splitParam(params[0])[0])
-        zapped = readAll(stdin).zap(character)
+      elif param1 == "-d" and param2 == "-r" and param3 == "-l":
+        target = splitParam(params[0])
+        zapped = readAll(stdin).zap(target=target, inject=inject)
+
         let zap_range: string = zapRange(splitParam(params[1]), zapped)
         stdout.write(zapLast(zap_range))
+
+      elif param1 == "-d" and param2 == "-i" and param3 == "-f":
+        target = splitParam(params[0])
+        inject = splitParam(params[1])
+        zapped = readAll(stdin).zap(target=target, inject=inject)
+        stdout.write(zapFirst(zapped))
+
+      elif param1 == "-d" and param2 == "-i" and param3 == "-l":
+        target = splitParam(params[0])
+        inject = splitParam(params[1])
+        zapped = readAll(stdin).zap(target=target, inject=inject)
+        stdout.write(zapLast(zapped))
+
+      elif param1 == "-d" and param2 == "-i" and param3 == "-r":
+        target = splitParam(params[0])
+        inject = splitParam(params[1])
+        var zrange: string = splitParam(params[2])
+        zapped = readAll(stdin).zap(target=target, inject=inject)
+
+        let zap_range: string = zapRange(zrange, zapped)
+        stdout.write(zap_range)
 
       elif param1 == "-h" xor param2 == "-h" xor param3 == "-h":
         stderr.write("'-h' cannot be used with other arguments")
