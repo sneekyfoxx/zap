@@ -1,4 +1,8 @@
-import std/[cmdline, terminal, re, strutils, strformat]
+from std/cmdline import paramCount, commandLineParams
+from terminal import isatty
+import re
+from strutils import parseInt, join
+from strformat import fmt
 
 proc zapHelp: void =
   const red: string = "\x1b[01;31m"
@@ -44,13 +48,15 @@ proc translate(value: var string): void =
     let next: string = (try: $(value[pos + 1]) except IndexDefect: "")
 
     if uint8(curr[0]) == uint8('\\'):
-      if uint8(next[0]) == uint8('0'): value[pos..pos + 1] = "\0"
-      elif uint8(next[0]) == uint8('b'): value[pos..pos + 1] = "\b"
-      elif uint8(next[0]) == uint8('t'): value[pos..pos + 1] = "\t"
-      elif uint8(next[0]) == uint8('n'): value[pos..pos + 1] = "\n"
-      elif uint8(next[0]) == uint8('v'): value[pos..pos + 1] = "\v"
-      elif uint8(next[0]) == uint8('f'): value[pos..pos + 1] = "\f"
-      elif uint8(next[0]) == uint8('r'): value[pos..pos + 1] = "\r"
+      if next != "":
+        if uint8(next[0]) == uint8('0'): value[pos..pos + 1] = "\0"
+        elif uint8(next[0]) == uint8('b'): value[pos..pos + 1] = "\b"
+        elif uint8(next[0]) == uint8('t'): value[pos..pos + 1] = "\t"
+        elif uint8(next[0]) == uint8('n'): value[pos..pos + 1] = "\n"
+        elif uint8(next[0]) == uint8('v'): value[pos..pos + 1] = "\v"
+        elif uint8(next[0]) == uint8('f'): value[pos..pos + 1] = "\f"
+        elif uint8(next[0]) == uint8('r'): value[pos..pos + 1] = "\r"
+        elif uint8(next[0]) == uint8('\\'): value[pos..pos + 1] = "\\"
     pos.inc()
 
 proc squeezeSpaces(bytes: var seq[uint8]): seq[uint8] =
@@ -81,15 +87,15 @@ proc stripEnds(unzapped: var seq[uint8]): void =
     if unzapped[back] == uint8(32):
       unzapped.delete(back)
 
-proc zapDelete(original_bytes: var seq[uint8], target: var string, inject: var string): void =
-  inject = inject
+proc zapDelete(original_bytes: var seq[uint8], target: string, inject: string): void =
+  let inject = inject
   let target_bytes: seq[uint8] = bytearray(target)
 
   if len(original_bytes) >= len(target_bytes):
     var start: int = 0
     var stop: int = len(target_bytes) - 1
 
-    while start < len(original_bytes) and stop < len(original_bytes):
+    while stop < len(original_bytes):
       if original_bytes[start..stop] == target_bytes:
         if inject == "":
             original_bytes[start..stop] = @[uint8(32)]
@@ -101,6 +107,7 @@ proc zapDelete(original_bytes: var seq[uint8], target: var string, inject: var s
 
       start.inc()
       stop.inc()
+  return
 
 proc zap(text: var string, target: var string, inject: var string): string =
   translate(text)
@@ -255,206 +262,219 @@ proc zapRange(param: string, zapped: string): string =
     stderr.write("Indices out of range -> '" & param & "'")
     quit(1)
 
-proc main(count: int, params: seq[string]): int =
-  var (text, target, inject, zapped, param1, param2, param3) = ("", "", "", "", "", "", "")
+proc activeTTY(count: int, params: seq[string]): void =
+  var (text, target, inject, zapped, param1, param2) = ("", "", "", "", "", "")
 
   if count == 0:
-    return 0
+    quit(0)
 
   elif count == 1:
-    if isatty(stdin): # if is a terminal
-      param1 = params[0].checkParams()
+    param1 = params[0].checkParams()
 
-      if param1 == "-h":
-        zapHelp()
+    if param1 == "-h":
+      zapHelp()
 
-      elif param1 in ["-c", "-g", "-l", "-r"]:
-        stderr.write("Not enough arguments")
-        return 1
-
-      else:
-        text = params[0]
-        zapped = zap(text=text, target=target, inject=inject)
-        stdout.write(zapped)
-        return 0 
-
-    else: # if not a terminal
-      text = readAll(stdin)
-      param1 = params[0].checkParams()
-
-      if param1 == "-d":
-        target = splitParam(params[0])
-        zapped = zap(text=text, target=target, inject=inject)
-        stdout.write(zapped)
-
-      elif param1 == "-h":
-        stderr.write("'" & param1 & "' doesn't accept any arguments")
-        return 1
-
-      elif param1 in ["-g", "-l", "-r"]:
-        stderr.write("Not enough arguments")
-        return 1
-
-      else:
-        discard readAll(stdin)
-        stderr.write("Not enough arguments")
-        return 1
-
-  elif count == 2:
-    if isatty(stdin):
-      param1 = params[0].checkParams()
-
-      if param1 == "-d":
-        text = params[1]
-        target = splitParam(params[0])
-        zapped = zap(text=text, target=target, inject=inject)
-        stdout.write(zapped)
-
-      elif param1 == "-g":
-        text = params[1]
-        zapped = zap(text=text, target=target, inject=inject)
-        stdout.write(zapGet(splitParam(params[0]), zapped))
-
-      elif param1 == "-h":
-        stderr.write("'" & param1 & "' doesn't accept any arguments")
-        return 1
-
-      elif param1 in ["-l", "-r"]:
-        stderr.write("Not enough arguments")
-        return 1
+    elif param1 in ["-d", "-g", "-l", "-r"]:
+      stderr.write("Not enough arguments")
+      quit(1)
 
     else:
-      text = readAll(stdin)
-      param1 = params[0].checkParams()
-      param2 = params[1].checkParams()
+      text = params[0]
+      zapped = zap(text, target, inject)
+      stdout.write(zapped)
+      quit(0) 
 
-      if param1 == "-d" and param2 == "-f":
-        target = splitParam(params[0])
-        zapped = zap(text=text, target=target, inject=inject)
-        stdout.write(zapFirst(zapped))
+  elif count == 2:
+    param1 = params[0].checkParams()
 
-      elif param1 == "-d" and param2 == "-g":
-        target = splitParam(params[0])
-        zapped = zap(text=text, target=target, inject=inject)
-        stdout.write(zapGet(splitParam(params[1]), zapped))
+    if param1 == "-d":
+      text = params[1]
+      target = splitParam(params[0])
+      zapped = zap(text, target, inject)
+      stdout.write(zapped)
 
-      elif param1 == "-d" and param2 == "-i":
-        target = splitParam(params[0])
-        inject = splitParam(params[1])
-        zapped = zap(text=text, target=target, inject=inject)
-        stdout.write(zapped)
+    elif param1 == "-g":
+      text = params[1]
+      zapped = zap(text, target, inject)
+      stdout.write(zapGet(splitParam(params[0]), zapped))
 
-      elif param1 == "-d" and param2 == "-l":
-        target = splitParam(params[0])
-        zapped = zap(text=text, target=target, inject=inject)
-        stdout.write(zapLast(zapped))
+    elif param1 == "-h":
+      stderr.write("'" & param1 & "' doesn't accept any arguments")
+      quit(1)
 
-      elif param1 == "-d" and param2 == "-r":
-        target = splitParam(params[0])
-        zapped = zap(text=text, target=target, inject=inject)
-        stdout.write(zapRange(splitParam(params[1]), zapped))
-
-      elif param1 == "-h" xor param2 == "-h":
-        stderr.write("'-h' cannot be used with other arguments")
-        return 1
+    elif param1 in ["-l", "-r"]:
+      stderr.write("Not enough arguments")
+      quit(1)
 
   elif count == 3:
     param1 = params[0].checkParams()
     param2 = params[1].checkParams()
 
-    if isatty(stdin):
-      if param1 == "-d" and param2 == "-f":
-        text = params[2]
-        target = splitParam(params[0])
-        zapped = zap(text=text, target=target, inject=inject)
-        stdout.write(zapFirst(zapped))
+    if param1 == "-d" and param2 == "-f":
+      text = params[2]
+      target = splitParam(params[0])
+      zapped = zap(text, target, inject)
+      stdout.write(zapFirst(zapped))
 
-      elif param1 == "-d" and param2 == "-g":
-        text = params[2]
-        target = splitParam(params[0])
-        zapped = zap(text=text, target=target, inject=inject)
-        stdout.write(zapGet(splitParam(params[1]), zapped))
+    elif param1 == "-d" and param2 == "-g":
+      text = params[2]
+      target = splitParam(params[0])
+      zapped = zap(text, target, inject)
+      stdout.write(zapGet(splitParam(params[1]), zapped))
 
-      elif param1 == "-d" and param2 == "-i":
-        text = params[2]
-        target = splitParam(params[0])
-        inject = splitParam(params[1])
-        zapped = zap(text=text, target=target, inject=inject)
-        stdout.write(zapped)
+    elif param1 == "-d" and param2 == "-i":
+      text = params[2]
+      target = splitParam(params[0])
+      inject = splitParam(params[1])
+      zapped = zap(text, target, inject)
+      stdout.write(zapped)
 
-      elif param1 == "-d" and param2 == "-l":
-        text = params[2]
-        target = splitParam(params[0])
-        zapped = zap(text=text, target=target, inject=inject)
-        stdout.write(zapLast(zapped))
+    elif param1 == "-d" and param2 == "-l":
+      text = params[2]
+      target = splitParam(params[0])
+      zapped = zap(text, target, inject)
+      stdout.write(zapLast(zapped))
 
-      elif param1 == "-d" and param2 == "-r":
-        text = params[2]
-        target = splitParam(params[0])
-        zapped = zap(text=text, target=target, inject=inject)
-        stdout.write(zapRange(splitParam(params[1]), zapped))
+    elif param1 == "-d" and param2 == "-r":
+      text = params[2]
+      target = splitParam(params[0])
+      zapped = zap(text, target, inject)
+      stdout.write(zapRange(splitParam(params[1]), zapped))
 
-      elif param1 == "-h" xor param2 == "-h":
-        stderr.write("'-h' cannot be used with other arguments")
-        return 1
-
-      else:
-        stderr.write("Invalid argument positioning")
-        return 1
+    elif param1 == "-h" xor param2 == "-h":
+      stderr.write("'-h' cannot be used with other arguments")
+      quit(1)
 
     else:
-      text = readAll(stdin)
-      param1 = params[0].checkParams()
-      param2 = params[1].checkParams()
-      param3 = params[2].checkParams()
-
-      if param1 == "-d" and param2 == "-r" and param3 == "-f":
-        target = splitParam(params[0])
-        zapped = zap(text=text, target=target, inject=inject)
-
-        let zap_range: string = zapRange(splitParam(params[1]), zapped)
-        stdout.write(zapFirst(zap_range))
-
-      elif param1 == "-d" and param2 == "-r" and param3 == "-l":
-        target = splitParam(params[0])
-        zapped = zap(text=text, target=target, inject=inject)
-
-        let zap_range: string = zapRange(splitParam(params[1]), zapped)
-        stdout.write(zapLast(zap_range))
-
-      elif param1 == "-d" and param2 == "-i" and param3 == "-f":
-        target = splitParam(params[0])
-        inject = splitParam(params[1])
-        zapped = zap(text=text, target=target, inject=inject)
-        stdout.write(zapFirst(zapped))
-
-      elif param1 == "-d" and param2 == "-i" and param3 == "-l":
-        target = splitParam(params[0])
-        inject = splitParam(params[1])
-        zapped = zap(text=text, target=target, inject=inject)
-        stdout.write(zapLast(zapped))
-
-      elif param1 == "-d" and param2 == "-i" and param3 == "-r":
-        target = splitParam(params[0])
-        inject = splitParam(params[1])
-        var zrange: string = splitParam(params[2])
-        zapped = zap(text=text, target=target, inject=inject)
-
-        let zap_range: string = zapRange(zrange, zapped)
-        stdout.write(zap_range)
-
-      elif param1 == "-h" xor param2 == "-h" xor param3 == "-h":
-        stderr.write("'-h' cannot be used with other arguments")
-        return 1
-
-      else:
-        stderr.write("Invalid argument positioning")
-        return 1
+      stderr.write("Invalid argument positioning")
+      quit(1)
 
   else:
     stderr.write("Too many arguments\n")
-    return 1
+    quit(1)
 
-  return 0
+  quit(0)
 
-quit(main(paramCount(), commandLineParams()))
+proc inactiveTTY(count: int, params: seq[string]): void =
+  var (text, target, inject, zapped, param1, param2, param3) = ("", "", "", "", "", "", "")
+
+  if count == 0:
+    quit(0)
+
+  elif count == 1:
+    text = readAll(stdin)
+    param1 = params[0].checkParams()
+
+    if param1 == "-d":
+      target = splitParam(params[0])
+      zapped = zap(text, target, inject)
+      stdout.write(zapped)
+
+    elif param1 == "-h":
+      stderr.write("'" & param1 & "' doesn't accept any arguments")
+      quit(1)
+
+    elif param1 in ["-g", "-l", "-r"]:
+      stderr.write("Not enough arguments")
+      quit(1)
+
+    else:
+      discard readAll(stdin)
+      stderr.write("Not enough arguments")
+      quit(1)
+
+  elif count == 2:
+    text = readAll(stdin)
+    param1 = params[0].checkParams()
+    param2 = params[1].checkParams()
+
+    if param1 == "-d" and param2 == "-f":
+      target = splitParam(params[0])
+      zapped = zap(text, target, inject)
+      stdout.write(zapFirst(zapped))
+
+    elif param1 == "-d" and param2 == "-g":
+      target = splitParam(params[0])
+      zapped = zap(text, target, inject)
+      stdout.write(zapGet(splitParam(params[1]), zapped))
+
+    elif param1 == "-d" and param2 == "-i":
+      target = splitParam(params[0])
+      inject = splitParam(params[1])
+      zapped = zap(text, target, inject)
+      stdout.write(zapped)
+
+    elif param1 == "-d" and param2 == "-l":
+      target = splitParam(params[0])
+      zapped = zap(text, target, inject)
+      stdout.write(zapLast(zapped))
+
+    elif param1 == "-d" and param2 == "-r":
+      target = splitParam(params[0])
+      zapped = zap(text, target, inject)
+      stdout.write(zapRange(splitParam(params[1]), zapped))
+
+    elif param1 == "-h" xor param2 == "-h":
+      stderr.write("'-h' cannot be used with other arguments")
+      quit(1)
+
+  elif count == 3:
+    text = readAll(stdin)
+    param1 = params[0].checkParams()
+    param2 = params[1].checkParams()
+    param3 = params[2].checkParams()
+
+    if param1 == "-d" and param2 == "-r" and param3 == "-f":
+      target = splitParam(params[0])
+      zapped = zap(text, target, inject)
+
+      let zap_range: string = zapRange(splitParam(params[1]), zapped)
+      stdout.write(zapFirst(zap_range))
+
+    elif param1 == "-d" and param2 == "-r" and param3 == "-l":
+      target = splitParam(params[0])
+      zapped = zap(text, target, inject)
+
+      let zap_range: string = zapRange(splitParam(params[1]), zapped)
+      stdout.write(zapLast(zap_range))
+
+    elif param1 == "-d" and param2 == "-i" and param3 == "-f":
+      target = splitParam(params[0])
+      inject = splitParam(params[1])
+      zapped = zap(text, target, inject)
+      stdout.write(zapFirst(zapped))
+
+    elif param1 == "-d" and param2 == "-i" and param3 == "-l":
+      target = splitParam(params[0])
+      inject = splitParam(params[1])
+      zapped = zap(text, target, inject)
+      stdout.write(zapLast(zapped))
+
+    elif param1 == "-d" and param2 == "-i" and param3 == "-r":
+      target = splitParam(params[0])
+      inject = splitParam(params[1])
+      var zrange: string = splitParam(params[2])
+      zapped = zap(text, target, inject)
+
+      let zap_range: string = zapRange(zrange, zapped)
+      stdout.write(zap_range)
+
+    elif param1 == "-h" xor param2 == "-h" xor param3 == "-h":
+      stderr.write("'-h' cannot be used with other arguments")
+      quit(1)
+
+    else:
+      stderr.write("Invalid argument positioning")
+      quit(1)
+
+  else:
+    stderr.write("Too many arguments\n")
+    quit(1)
+
+  quit(0)
+
+if isatty(stdin):
+  activeTTY(paramCount(), commandLineParams())
+
+else:
+  inactiveTTY(paramCount(), commandLineParams())
