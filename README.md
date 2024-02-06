@@ -13,21 +13,28 @@
 ## Similarities To *cut*
 
 - slice strings based on a given delimiter
-- select a one or more fields
+- select a one or more fields (range in zap)
 
 ## Similarities To *tr*
 
-- character truncation
-- ANSII escape character deletion
-- character replacement
+- character truncation (default in zap)
+- ANSII escape character deletion (not including hex and octal)
+- character replacement (injection in zap)
 
 
 ## Why use *Zap*?
 
-Some of the benefits of using **Zap** is that it can help reduce the number of times *cut* and *tr* may need to be executed. Example: `"some text" | zap -c:":" -l | grep -E 'something'`. The previous example removes all ASCII escape sequences as well as the ':' character, gets the last field, and sends the output to grep. In many cases you may find yourself using *zap* inplace of *cut*.
+Some of the benefits of using **Zap** is that it can help reduce the number of times *cut* and *tr* may need to be executed. Example: `"some text" | zap -d:":" -l | grep -E 'something'`. The previous example removes all ASCII escape sequences as well as the ':' character, gets the last field, and sends the output to grep. In many cases you may find yourself using *zap* inplace of *cut*.
 
 ## Usage Examples
 
-`zap -c:'CHAR' [-i:CHAR] [-g:POS] [[-r:START,STOP] [-f | -l]] TEXT`
+``` bash
+$ example="This is some\nexample text\tfor testing the zap utility\0"
+$ zap -d:'example' -i:'actual'
+This is some actual text for testing the zap utility
+$
+```
 
-`TEXT | zap -c:'CHAR' [-i:CHAR] [-g:POS] [[-r:START,STOP] [-f | -l]]`
+`zap -d:TEXT [-i:TEXT] [-g:POS] [-r:START,STOP] [-f, -l] TEXT`
+
+`TEXT | zap -d:TEXT [-i:TEXT] [-g:POS] [-r:START,STOP] [-f, -l]`
