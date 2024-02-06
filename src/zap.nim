@@ -76,15 +76,15 @@ proc squeezeSpaces(bytes: var seq[uint8]): seq[uint8] =
   return bytes
 
 proc stripEnds(unzapped: var seq[uint8]): void =
-  const front: int = 0
-  var back: int = len(unzapped) - 2
-
   if len(unzapped) > 0:
-    if unzapped[front] == uint8(32):
+    const front: int = 0
+    var back: int = len(unzapped) - 2
+
+    if len(unzapped) > 0 and unzapped[front] == uint8(32):
       unzapped.delete(front)
       back = len(unzapped) - 1
 
-    if unzapped[back] == uint8(32):
+    if len(unzapped) > 0 and unzapped[back] == uint8(32):
       unzapped.delete(back)
 
 proc zapDelete(original_bytes: var seq[uint8], target: string, inject: string): void =
