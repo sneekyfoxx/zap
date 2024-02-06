@@ -102,10 +102,9 @@ proc zapDelete(original_bytes: var seq[uint8], target: var string, inject: var s
       start.inc()
       stop.inc()
 
-    echo original_bytes
-
-proc zap(data: string = "", target: var string, inject: var string): string =
-  var bytes: seq[uint8] = bytearray(data)
+proc zap(text: var string, target: var string, inject: var string): string =
+  translate(text)
+  var bytes: seq[uint8] = bytearray(text)
   var pos: int = 0
 
   if target != "":
@@ -257,7 +256,7 @@ proc zapRange(param: string, zapped: string): string =
     quit(1)
 
 proc main(count: int, params: seq[string]): int =
-  var (target, inject, zapped, param1, param2, param3) = ("", "", "", "", "", "")
+  var (text, target, inject, zapped, param1, param2, param3) = ("", "", "", "", "", "", "")
 
   if count == 0:
     return 0
@@ -274,16 +273,18 @@ proc main(count: int, params: seq[string]): int =
         return 1
 
       else:
-        zapped = params[0].zap(target=target, inject=inject)
+        text = params[0]
+        zapped = zap(text=text, target=target, inject=inject)
         stdout.write(zapped)
         return 0 
 
     else: # if not a terminal
+      text = readAll(stdin)
       param1 = params[0].checkParams()
 
       if param1 == "-d":
         target = splitParam(params[0])
-        zapped = readAll(stdin).zap(target=target, inject=inject)
+        zapped = zap(text=text, target=target, inject=inject)
         stdout.write(zapped)
 
       elif param1 == "-h":
@@ -304,12 +305,14 @@ proc main(count: int, params: seq[string]): int =
       param1 = params[0].checkParams()
 
       if param1 == "-d":
+        text = params[1]
         target = splitParam(params[0])
-        zapped = params[1].zap(target=target, inject=inject)
+        zapped = zap(text=text, target=target, inject=inject)
         stdout.write(zapped)
 
       elif param1 == "-g":
-        zapped = params[1].zap(target=target, inject=inject)
+        text = params[1]
+        zapped = zap(text=text, target=target, inject=inject)
         stdout.write(zapGet(splitParam(params[0]), zapped))
 
       elif param1 == "-h":
@@ -321,33 +324,34 @@ proc main(count: int, params: seq[string]): int =
         return 1
 
     else:
+      text = readAll(stdin)
       param1 = params[0].checkParams()
       param2 = params[1].checkParams()
 
       if param1 == "-d" and param2 == "-f":
         target = splitParam(params[0])
-        zapped = readAll(stdin).zap(target=target, inject=inject)
+        zapped = zap(text=text, target=target, inject=inject)
         stdout.write(zapFirst(zapped))
 
       elif param1 == "-d" and param2 == "-g":
         target = splitParam(params[0])
-        zapped = readAll(stdin).zap(target=target, inject=inject)
+        zapped = zap(text=text, target=target, inject=inject)
         stdout.write(zapGet(splitParam(params[1]), zapped))
 
       elif param1 == "-d" and param2 == "-i":
         target = splitParam(params[0])
         inject = splitParam(params[1])
-        zapped = readAll(stdin).zap(target=target, inject=inject)
+        zapped = zap(text=text, target=target, inject=inject)
         stdout.write(zapped)
 
       elif param1 == "-d" and param2 == "-l":
         target = splitParam(params[0])
-        zapped = readAll(stdin).zap(target=target, inject=inject)
+        zapped = zap(text=text, target=target, inject=inject)
         stdout.write(zapLast(zapped))
 
       elif param1 == "-d" and param2 == "-r":
         target = splitParam(params[0])
-        zapped = readAll(stdin).zap(target=target, inject=inject)
+        zapped = zap(text=text, target=target, inject=inject)
         stdout.write(zapRange(splitParam(params[1]), zapped))
 
       elif param1 == "-h" xor param2 == "-h":
@@ -360,29 +364,34 @@ proc main(count: int, params: seq[string]): int =
 
     if isatty(stdin):
       if param1 == "-d" and param2 == "-f":
+        text = params[2]
         target = splitParam(params[0])
-        zapped = params[2].zap(target=target, inject=inject)
+        zapped = zap(text=text, target=target, inject=inject)
         stdout.write(zapFirst(zapped))
 
       elif param1 == "-d" and param2 == "-g":
+        text = params[2]
         target = splitParam(params[0])
-        zapped = params[2].zap(target=target, inject=inject)
+        zapped = zap(text=text, target=target, inject=inject)
         stdout.write(zapGet(splitParam(params[1]), zapped))
 
       elif param1 == "-d" and param2 == "-i":
+        text = params[2]
         target = splitParam(params[0])
         inject = splitParam(params[1])
-        zapped = params[2].zap(target=target, inject=inject)
+        zapped = zap(text=text, target=target, inject=inject)
         stdout.write(zapped)
 
       elif param1 == "-d" and param2 == "-l":
+        text = params[2]
         target = splitParam(params[0])
-        zapped = params[2].zap(target=target, inject=inject)
+        zapped = zap(text=text, target=target, inject=inject)
         stdout.write(zapLast(zapped))
 
       elif param1 == "-d" and param2 == "-r":
+        text = params[2]
         target = splitParam(params[0])
-        zapped = params[2].zap(target=target, inject=inject)
+        zapped = zap(text=text, target=target, inject=inject)
         stdout.write(zapRange(splitParam(params[1]), zapped))
 
       elif param1 == "-h" xor param2 == "-h":
@@ -394,20 +403,21 @@ proc main(count: int, params: seq[string]): int =
         return 1
 
     else:
+      text = readAll(stdin)
       param1 = params[0].checkParams()
       param2 = params[1].checkParams()
       param3 = params[2].checkParams()
 
       if param1 == "-d" and param2 == "-r" and param3 == "-f":
         target = splitParam(params[0])
-        zapped = readAll(stdin).zap(target=target, inject=inject)
+        zapped = zap(text=text, target=target, inject=inject)
 
         let zap_range: string = zapRange(splitParam(params[1]), zapped)
         stdout.write(zapFirst(zap_range))
 
       elif param1 == "-d" and param2 == "-r" and param3 == "-l":
         target = splitParam(params[0])
-        zapped = readAll(stdin).zap(target=target, inject=inject)
+        zapped = zap(text=text, target=target, inject=inject)
 
         let zap_range: string = zapRange(splitParam(params[1]), zapped)
         stdout.write(zapLast(zap_range))
@@ -415,20 +425,20 @@ proc main(count: int, params: seq[string]): int =
       elif param1 == "-d" and param2 == "-i" and param3 == "-f":
         target = splitParam(params[0])
         inject = splitParam(params[1])
-        zapped = readAll(stdin).zap(target=target, inject=inject)
+        zapped = zap(text=text, target=target, inject=inject)
         stdout.write(zapFirst(zapped))
 
       elif param1 == "-d" and param2 == "-i" and param3 == "-l":
         target = splitParam(params[0])
         inject = splitParam(params[1])
-        zapped = readAll(stdin).zap(target=target, inject=inject)
+        zapped = zap(text=text, target=target, inject=inject)
         stdout.write(zapLast(zapped))
 
       elif param1 == "-d" and param2 == "-i" and param3 == "-r":
         target = splitParam(params[0])
         inject = splitParam(params[1])
         var zrange: string = splitParam(params[2])
-        zapped = readAll(stdin).zap(target=target, inject=inject)
+        zapped = zap(text=text, target=target, inject=inject)
 
         let zap_range: string = zapRange(zrange, zapped)
         stdout.write(zap_range)
