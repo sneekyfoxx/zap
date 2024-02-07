@@ -12,7 +12,7 @@ proc zapHelp: void =
   const orange: string = "\x1b[01;38;02;255;160;00m"
   const reset: string = "\x1b[00m"
 
-  stdout.write("{green}Usage{reset}: {orange}zap{reset} {yellow}[-h] [-d:TEXT [-i:TEXT] [-g:POS] [-r:START,STOP] [-f, -l]]{reset}\n\n".fmt)
+  stdout.write("{green}Usage{reset}: {orange}zap{reset} {yellow}[-h] [-d:LIST [-i:TEXT] [-g:POS] [-r:START,STOP] [-t:TEXT] [-f, -l]]{reset}\n\n".fmt)
   stdout.write("{cyan}Option               Description{reset}\n".fmt)
   stdout.write("{red}------               -----------{reset}\n".fmt)
   stdout.write(" {cyan}-d{reset}:{green}LIST{reset}             {yellow}remove all characters in LIST from the zapped string{reset}\n\n".fmt) 
