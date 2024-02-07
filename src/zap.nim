@@ -299,7 +299,7 @@ proc zapRange(param: string, zapped: string): string =
     quit(1)
 
 proc activeTTY(count: int, params: seq[string]): void =
-  var (input, list, text, linject, tinject, zapped, param1, param2) = ("", "", "", "", "", "", "", "")
+  var (input, list, text, linject, tinject, zapped, param1, param2, param3) = ("", "", "", "", "", "", "", "", "")
 
   if count == 0:
     quit(0)
@@ -310,7 +310,7 @@ proc activeTTY(count: int, params: seq[string]): void =
     if param1 == "-h":
       zapHelp()
 
-    elif param1 in ["-d", "-g", "-l", "-r", "-t"]:
+    elif param1 in ["-d", "-f", "-g", "-l", "-r", "-t"]:
       stderr.write("Not enough arguments")
       quit(1)
 
@@ -321,13 +321,17 @@ proc activeTTY(count: int, params: seq[string]): void =
       quit(0) 
 
   elif count == 2:
+    input = params[1]
     param1 = params[0].checkParams()
 
     if param1 == "-d":
-      input = params[1]
       list = splitParam(params[0])
       zapped = zap(input, list, text, linject, tinject)
       stdout.write(zapped)
+
+    elif param1 == "-f":
+      zapped = zap(input, list, text, linject, tinject)
+      stdout.write(zapFirst(zapped))
 
     elif param1 == "-g":
       input = params[1]
@@ -338,9 +342,17 @@ proc activeTTY(count: int, params: seq[string]): void =
       stderr.write("'" & param1 & "' doesn't accept any arguments")
       quit(1)
 
-    elif param1 in ["-l", "-r"]:
+    elif param1 == "-i":
       stderr.write("Not enough arguments")
       quit(1)
+
+    elif param1 == "-l":
+      zapped = zap(input, list, text, linject, tinject)
+      stdout.write(zapLast(zapped))
+
+    elif param1 == "-r":
+      zapped = zap(input, list, text, linject, tinject)
+      stdout.write(zapRange(splitParam(params[0]), zapped))
 
     elif param1 == "-t":
       input = params[1]
@@ -429,6 +441,125 @@ proc activeTTY(count: int, params: seq[string]): void =
       stderr.write("Invalid argument positioning")
       quit(1)
 
+  elif count == 4:
+    input = params[3]
+    param1 = params[0].checkParams()
+    param2 = params[1].checkParams()
+    param3 = params[2].checkParams()
+
+    if param1 == "-d" and param2 == "-r" and param3 == "-f":
+      list = splitParam(params[0])
+      zapped = zap(input, list, text, linject, tinject)
+
+      let zap_range: string = zapRange(splitParam(params[1]), zapped)
+      stdout.write(zapFirst(zap_range))
+
+    elif param1 == "-d" and param2 == "-r" and param3 == "-l":
+      list = splitParam(params[0])
+      zapped = zap(input, list, text, linject, tinject)
+
+      let zap_range: string = zapRange(splitParam(params[1]), zapped)
+      stdout.write(zapLast(zap_range))
+
+    elif param1 == "-d" and param2 == "-i" and param3 == "-f":
+      list = splitParam(params[0])
+      linject = splitParam(params[1])
+      zapped = zap(input, list, text, linject, tinject)
+      stdout.write(zapFirst(zapped))
+
+    elif param1 == "-d" and param2 == "-i" and param3 == "-l":
+      list = splitParam(params[0])
+      linject = splitParam(params[1])
+      zapped = zap(input, list, text, linject, tinject)
+      stdout.write(zapLast(zapped))
+
+    elif param1 == "-d" and param2 == "-i" and param3 == "-r":
+      list = splitParam(params[0])
+      linject = splitParam(params[1])
+      var zrange: string = splitParam(params[2])
+      zapped = zap(input, list, text, linject, tinject)
+
+      let zap_range: string = zapRange(zrange, zapped)
+      stdout.write(zap_range)
+
+    elif param1 == "-t" and param2 == "-r" and param3 == "-f":
+      text = splitParam(params[0])
+      zapped = zap(input, list, text, linject, tinject)
+
+      let zap_range: string = zapRange(splitParam(params[1]), zapped)
+      stdout.write(zapFirst(zap_range))
+
+    elif param1 == "-t" and param2 == "-r" and param3 == "-l":
+      text = splitParam(params[0])
+      zapped = zap(input, list, text, linject, tinject)
+
+      let zap_range: string = zapRange(splitParam(params[1]), zapped)
+      stdout.write(zapLast(zap_range))
+
+    elif param1 == "-t" and param2 == "-i" and param3 == "-f":
+      text = splitParam(params[0])
+      tinject = splitParam(params[1])
+      zapped = zap(input, list, text, linject, tinject)
+      stdout.write(zapFirst(zapped))
+
+    elif param1 == "-t" and param2 == "-i" and param3 == "-l":
+      text = splitParam(params[0])
+      tinject = splitParam(params[1])
+      zapped = zap(input, list, text, linject, tinject)
+      stdout.write(zapLast(zapped))
+
+    elif param1 == "-t" and param2 == "-i" and param3 == "-r":
+      text = splitParam(params[0])
+      tinject = splitParam(params[1])
+      var zrange: string = splitParam(params[2])
+      zapped = zap(input, list, text, linject, tinject)
+
+      let zap_range: string = zapRange(zrange, zapped)
+      stdout.write(zap_range)
+
+    elif param1 == "-d" and param2 == "-t" and param3 == "-f":
+      list = splitParam(params[0])
+      text = splitParam(params[1])
+      zapped = zap(input, list, text, linject, tinject)
+      stdout.write(zapFirst(zapped))
+
+    elif param1 == "-d" and param2 == "-t" and param3 == "-g":
+      list = splitParam(params[0])
+      text = splitParam(params[1])
+      zapped = zap(input, list, text, linject, tinject)
+      stdout.write(zapGet(splitParam(params[2]), zapped))
+
+    elif param1 == "-d" and param2 == "-t" and param3 == "-i":
+      list = splitParam(params[0])
+      text = splitParam(params[1])
+      linject = splitParam(params[2])
+      tinject = splitParam(params[2])
+      zapped = zap(input, list, text, linject, tinject)
+      stdout.write(zapped)
+
+    elif param1 == "-d" and param2 == "-t" and param3 == "-l":
+      list = splitParam(params[0])
+      text = splitParam(params[1])
+      zapped = zap(input, list, text, linject, tinject)
+      stdout.write(zapLast(zapped))
+
+    elif param1 == "-d" and param2 == "-t" and param3 == "-r":
+      list = splitParam(params[0])
+      text = splitParam(params[1])
+      var zrange: string = splitParam(params[2])
+      zapped = zap(input, list, text, linject, tinject)
+
+      let zap_range: string = zapRange(zrange, zapped)
+      stdout.write(zap_range)
+
+    elif param1 == "-h" xor param2 == "-h" xor param3 == "-h":
+      stderr.write("'-h' cannot be used with other arguments")
+      quit(1)
+
+    else:
+      stderr.write("Invalid argument positioning")
+      quit(1)
+
   else:
     stderr.write("Too many arguments\n")
     quit(1)
@@ -450,18 +581,34 @@ proc inactiveTTY(count: int, params: seq[string]): void =
       zapped = zap(input, list, text, linject, tinject)
       stdout.write(zapped)
 
-    elif param1 == "-t":
-      text = splitParam(params[0])
+    elif param1 == "-f":
       zapped = zap(input, list, text, linject, tinject)
-      stdout.write(zapped)
+      stdout.write(zapFirst(zapped))
+
+    elif param1 == "-g":
+      zapped = zap(input, list, text, linject, tinject)
+      stdout.write(zapGet(splitParam(params[0]), zapped))
 
     elif param1 == "-h":
       stderr.write("'" & param1 & "' doesn't accept any arguments")
       quit(1)
 
-    elif param1 in ["-g", "-l", "-r"]:
+    elif param1 == "-i":
       stderr.write("Not enough arguments")
       quit(1)
+
+    elif param1 == "-l":
+      zapped = zap(input, list, text, linject, tinject)
+      stdout.write(zapLast(zapped))
+
+    elif param1 == "-r":
+      zapped = zap(input, list, text, linject, tinject)
+      stdout.write(zapRange(splitParam(params[0]), zapped))
+
+    elif param1 == "-t":
+      text = splitParam(params[0])
+      zapped = zap(input, list, text, linject, tinject)
+      stdout.write(zapped)
 
     else:
       discard readAll(stdin)
@@ -517,7 +664,7 @@ proc inactiveTTY(count: int, params: seq[string]): void =
 
     elif param1 == "-t" and param2 == "-i":
       text = splitParam(params[0])
-      linject = splitParam(params[1])
+      tinject = splitParam(params[1])
       zapped = zap(input, list, text, linject, tinject)
       stdout.write(zapped)
 
@@ -627,6 +774,7 @@ proc inactiveTTY(count: int, params: seq[string]): void =
       list = splitParam(params[0])
       text = splitParam(params[1])
       linject = splitParam(params[2])
+      tinject = splitParam(params[2])
       zapped = zap(input, list, text, linject, tinject)
       stdout.write(zapped)
 
